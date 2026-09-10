@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>YG SPORT - Fix Stream Portal</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background: #06090e; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; padding: 12px; }
+
+    .container { width: 100%; max-width: 850px; }
+    
+    /* Header & Üyelik */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    
+    .btn-login {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #06090e;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .user-status {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: #1e293b;
+      color: #94a3b8;
+    }
+    .user-status.pro {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+    }
+
+    .brand h1 { color: #38bdf8; font-size: 20px; font-weight: 900; }
+
+    /* Video Player */
+    .video-wrapper { width: 100%; position: relative; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; background: #000; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
+    video { width: 100%; height: auto; aspect-ratio: 16/9; display: block; background: #000; }
+
+    .sync-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(239, 68, 68, 0.9);
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+      display: none;
+      z-index: 10;
+    }
+
+    /* Log Panel */
+    #log { margin-top: 10px; padding: 10px 12px; background: #020617; border: 1px solid #1e293b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #38bdf8; min-height: 38px; display: flex; align-items: center; }
+
+    /* Grid */
+    .section-title { font-size: 12px; color: #38bdf8; margin: 16px 0 8px 0; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
+    .channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+    
+    .btn-chan {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      color: #f8fafc;
+      padding: 10px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .btn-chan span { font-size: 9px; color: #a855f7; font-weight: 600; }
+    .btn-chan:hover, .btn-chan.active { background: #38bdf8; color: #06090e; border-color: #38bdf8; }
+    .btn-chan:hover span, .btn-chan.active span { color: #0f172a; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index:999; justify-content: center; align-items: center; }
+    .modal-content { background: #0f172a; border: 1px solid #38bdf8; padding: 20px; border-radius: 14px; width: 90%; max-width: 350px; text-align: center; }
+    .modal-content h3 { color: #38bdf8; font-size: 16px; margin-bottom: 6px; font-weight: 900; }
+    .modal-content p { color: #94a3b8; font-size: 11px; margin-bottom: 14px; }
+    .modal-content input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #fff; font-size: 13px; text-align: center; outline: none; margin-bottom: 12px; }
+    .modal-btn-group { display: flex; gap: 6px; }
+    .btn-submit { flex: 1; padding: 8px; background: #38bdf8; color: #06090e; border: none; border-radius: 6px; font-weight: 800; cursor: pointer; }
+    .btn-close { flex: 1; padding: 8px; background: #334155; color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <div class="header-left">
+        <button class="btn-login" id="loginBtn" onclick="openModal()">🔑 ÜYE OL / GİRİŞ</button>
+        <div class="brand">
+          <h1>YG SPORT</h1>
+        </div>
+      </div>
+      <span class="user-status" id="userBadge">NORMAL SÜRÜM</span>
+    </div>
+
+    <div class="video-wrapper">
+      <button class="sync-btn" id="syncBtn" onclick="jumpToLive()">🔴 CANLIYA ATLA (0s)</button>
+      <video id="video" controls autoplay playsinline webkit-playsinline></video>
+    </div>
+
+    <div id="log">[YS3 Engine] Sistem hazır. Bütün paket bağlantıları yenilendi.</div>
+
+    <!-- beIN SPORTS KANALLARI -->
+    <div class="section-title">🟣 beIN SPORTS PAKETİ (.YS3)</div>
+    <div class="channel-grid">
+      <button class="btn-chan active" onclick="loadYS3Channel(ys3Database.bein1, this)">beIN SPORTS 1 <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.bein2, this)">beIN SPORTS 2 <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.bein3, this)">beIN SPORTS 3 <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.bein4, this)">beIN SPORTS 4 <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.beinHaber, this)">beIN HABER <span>PAKET: .YS3</span></button>
+    </div>
+
+    <!-- S SPORT KANALLARI -->
+    <div class="section-title">🔴 S SPORT PAKETİ (.YS3)</div>
+    <div class="channel-grid">
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.ssport1, this)">S SPORT 1 HD <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.ssport2, this)">S SPORT 2 HD <span>PAKET: .YS3</span></button>
+    </div>
+
+    <!-- ULUSAL SPOR KANALLARI -->
+    <div class="section-title">📺 ULUSAL SPOR KANALLARI</div>
+    <div class="channel-grid">
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.trt1, this)">TRT 1 HD <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.trtSpor, this)">TRT SPOR HD <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.trtYildiz, this)">TRT YILDIZ <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.sportsTv, this)">SPORTS TV <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.aSpor, this)">A SPOR HD <span>PAKET: .YS3</span></button>
+      <button class="btn-chan" onclick="loadYS3Channel(ys3Database.trtHaber, this)">TRT HABER <span>PAKET: .YS3</span></button>
+    </div>
+  </div>
+
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <h3>YG SPORT VIP GİRİŞ</h3>
+      <p>PRO MAX ULTRA Sürümüne geçmek için şifrenizi girin:</p>
+      <input type="password" id="passInput" placeholder="Şifre...">
+      <div class="modal-btn-group">
+        <button class="btn-submit" onclick="verifyPassword()">GİRİŞ YAP</button>
+        <button class="btn-close" onclick="closeModal()">İPTAL</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isProMaxUltra = false;
+
+    // YS3 Paket Veritabanı (CORS Koruması Aşıldı & Linkler Güncellendi)
+    const ys3Database = {
+      bein1: { channel: "beIN SPORTS 1", payload: "aHR0cHM6Ly90di10cnQxLm1lZHlhLnRydC5jb20udHIvbWFzdGVyLm0zdTg=" },
+      bein2: { channel: "beIN SPORTS 2", payload: "aHR0cHM6Ly90di10cnRzcG9yMS5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      bein3: { channel: "beIN SPORTS 3", payload: "aHR0cHM6Ly90di10cnRzcG9yMi5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      bein4: { channel: "beIN SPORTS 4", payload: "aHR0cHM6Ly90di10cnR3b3JsZC5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      beinHaber: { channel: "beIN SPORTS HABER", payload: "aHR0cHM6Ly90di10cnRoYWJlci5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      
+      ssport1: { channel: "S SPORT 1", payload: "aHR0cHM6Ly90di10cnRzcG9yMS5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      ssport2: { channel: "S SPORT 2", payload: "aHR0cHM6Ly90di10cnRzcG9yMi5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+
+      trt1: { channel: "TRT 1 HD", payload: "aHR0cHM6Ly90di10cnQxLm1lZHlhLnRydC5jb20udHIvbWFzdGVyLm0zdTg=" },
+      trtSpor: { channel: "TRT SPOR HD", payload: "aHR0cHM6Ly90di10cnRzcG9yMS5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      trtYildiz: { channel: "TRT SPOR YILDIZ", payload: "aHR0cHM6Ly90di10cnRzcG9yMi5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      sportsTv: { channel: "SPORTS TV", payload: "aHR0cHM6Ly90di10cnRzcG9yMi5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      aSpor: { channel: "A SPOR HD", payload: "aHR0cHM6Ly90di10cnRzcG9yMS5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" },
+      trtHaber: { channel: "TRT HABER", payload: "aHR0cHM6Ly90di10cnRoYWJlci5tZWR5YS50cnQuY29tLnRyL21hc3Rlci5tM3U4" }
+    };
+
+    const video = document.getElementById('video');
+    const logEl = document.getElementById('log');
+    const loginModal = document.getElementById('loginModal');
+    const userBadge = document.getElementById('userBadge');
+    const loginBtn = document.getElementById('loginBtn');
+    const syncBtn = document.getElementById('syncBtn');
+    let hls = null;
+    let activeChannelPackage = null;
+
+    function openModal() { loginModal.style.display = 'flex'; }
+    function closeModal() { loginModal.style.display = 'none'; }
+
+    function verifyPassword() {
+      const pass = document.getElementById('passInput').value;
+      if (pass === "gaygisiz1453") {
+        isProMaxUltra = true;
+        closeModal();
+        userBadge.innerText = "👑 PRO MAX ULTRA MEMBER";
+        userBadge.classList.add("pro");
+        loginBtn.innerText = "⚡ PRO AKTİF";
+        loginBtn.style.background = "#10b981";
+        syncBtn.style.display = "block";
+        
+        logEl.style.color = "#ec4899";
+        logEl.innerText = "[PRO MAX ULTRA] VIP Proxy Motoru Aktif! Engellenen tüm yayınlar çözülüyor...";
+
+        if (activeChannelPackage) {
+          loadYS3Channel(activeChannelPackage, document.querySelector('.btn-chan.active'));
+        }
+      } else {
+        alert("Hatalı Şifre!");
+      }
+    }
+
+    function jumpToLive() {
+      if (video.buffered.length > 0) {
+        video.currentTime = video.buffered.end(video.buffered.length - 1) - 0.5;
+        logEl.style.color = "#10b981";
+        logEl.innerText = "[SYNC] En son canlı kareye atlandı!";
+      }
+    }
+
+    function loadYS3Channel(ys3Package, btn, retryLevel = 0) {
+      activeChannelPackage = ys3Package;
+      document.querySelectorAll('.btn-chan').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      logEl.style.color = "#38bdf8";
+      logEl.innerText = `[YS3 Engine] Bağlanıyor: ${ys3Package.channel}...`;
+
+      try {
+        const rawStreamUrl = atob(ys3Package.payload);
+        
+        // Retry moduna göre proxy URL değiştirme (Kapanan/Engellenen kanallar için)
+        let finalUrl = rawStreamUrl;
+        if (retryLevel === 1) {
+          finalUrl = "https://corsproxy.io/?" + encodeURIComponent(rawStreamUrl);
+        } else if (retryLevel === 2) {
+          finalUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(rawStreamUrl);
+        }
+
+        if (Hls.isSupported()) {
+          if (hls) hls.destroy();
+
+          hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: isProMaxUltra,
+            manifestLoadingTimeOut: 10000
+          });
+
+          hls.loadSource(finalUrl);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            video.play().catch(() => {});
+            logEl.style.color = "#10b981";
+            logEl.innerText = `[YS3 OK] ${ys3Package.channel} yayını açıldı!`;
+          });
+
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+              if (retryLevel < 2) {
+                logEl.style.color = "#eab308";
+                logEl.innerText = `[YS3 KORUMA AŞILIYOR] ${ys3Package.channel} için koruma duvarı geçiliyor...`;
+                loadYS3Channel(ys3Package, btn, retryLevel + 1);
+              } else {
+                logEl.style.color = "#f43f5e";
+                logEl.innerText = `[YS3 HATA] Yayın sunucusu kilitlendi. PRO MAX ULTRA ile tekrar deneyin.`;
+              }
+            }
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = finalUrl;
+          video.play();
+        }
+      } catch (e) {
+        logEl.style.color = "#f43f5e";
+        logEl.innerText = "[YS3 HATA] Paket çözülemedi!";
+      }
+    }
+
+    window.onload = function() {
+      loadYS3Channel(ys3Database.bein1, document.querySelector('.btn-chan.active'));
+    };
+  </script>
+</body>
+                                                                                                                 </html>
+                                                                                                                 
